@@ -1,0 +1,44 @@
+{
+  "title": "Infrastructure",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "15s",
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Host CPU",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [{ "expr": "100 - (avg by(instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)", "legendFormat": "{{instance}}" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "Host Memory",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [{ "expr": "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100", "legendFormat": "{{instance}}" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "Container CPU",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [{ "expr": "container:cpu_usage_rate5m", "legendFormat": "{{name}}" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "Container Memory",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [{ "expr": "container:memory_usage_working_set", "legendFormat": "{{name}}" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "Disk Available %",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "targets": [{ "expr": "(node_filesystem_avail_bytes{fstype!~\"tmpfs|overlay|9p\"} / node_filesystem_size_bytes{fstype!~\"tmpfs|overlay|9p\"}) * 100", "legendFormat": "{{mountpoint}}" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "Network Receive Bytes",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "targets": [{ "expr": "rate(node_network_receive_bytes_total[5m])", "legendFormat": "{{device}}" }]
+    }
+  ]
+}

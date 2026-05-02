@@ -1,0 +1,15 @@
+[Unit]
+Description=Security Observability Platform
+After=docker.service network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/security-observability-platform
+ExecStart=/usr/bin/docker compose --env-file /opt/security-observability-platform/.env -f infra/docker-compose.yml up --build -d
+ExecStop=/usr/bin/docker compose --env-file /opt/security-observability-platform/.env -f infra/docker-compose.yml down
+TimeoutStartSec=0
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,22 @@
+route:
+  receiver: local-webhook
+  group_by: ["alertname", "severity", "service"]
+  group_wait: 15s
+  group_interval: 30s
+  repeat_interval: 2h
+  routes:
+    - matchers:
+        - severity="critical"
+      receiver: local-webhook
+    - matchers:
+        - severity="warning"
+      receiver: local-webhook
+    - matchers:
+        - severity="info"
+      receiver: local-webhook
+
+receivers:
+  - name: local-webhook
+    webhook_configs:
+      - url: http://alert-webhook-mock:8080
+        send_resolved: true

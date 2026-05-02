@@ -1,0 +1,31 @@
+{
+  "title": "Incident Triage",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Firing Alert Conditions",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        { "expr": "service:http_5xx_rate5m", "legendFormat": "5xx {{service}}" },
+        { "expr": "max by(service) (service:latency_p95_5m)", "legendFormat": "latency {{service}}" },
+        { "expr": "service:scan_backlog_depth", "legendFormat": "backlog {{service}}" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Dependency State",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [{ "expr": "security_platform_dependency_health", "legendFormat": "{{service}} :: {{dependency}}" }]
+    },
+    {
+      "type": "logs",
+      "title": "Recent Service Logs",
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 8 },
+      "datasource": { "type": "loki", "uid": "Loki" },
+      "targets": [{ "expr": "{job=\"security-platform\"}" }]
+    }
+  ]
+}

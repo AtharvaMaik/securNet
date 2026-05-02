@@ -1,0 +1,126 @@
+groups:
+  - name: availability-alerts
+    rules:
+      - alert: SecurityServiceDown
+        expr: up{job=~"api-gateway|auth-service|vault-service|scan-service"} == 0
+        for: 30s
+        labels:
+          severity: critical
+          category: availability
+        annotations:
+          summary: "Service down: {{ $labels.job }}"
+          description: "Prometheus cannot scrape {{ $labels.job }} for at least 1 minute."
+
+      - alert: SecurityDependencyUnhealthy
+        expr: security_platform_dependency_health == 0
+        for: 30s
+        labels:
+          severity: critical
+          category: dependency
+        annotations:
+          summary: "Dependency unhealthy for {{ $labels.service }}"
+          description: "{{ $labels.service }} reports {{ $labels.dependency }} as unhealthy."
+
+  - name: performance-alerts
+    rules:
+      - alert: HighErrorRate
+        expr: service:http_5xx_rate5m > 0.05
+        for: 30s
+        labels:
+          severity: warning
+          category: reliability
+        annotations:
+          summary: "High 5xx rate on {{ $labels.service }}"
+          description: "{{ $labels.service }} 5xx rate is above 0.05 requests/sec for 5 minutes."
+
+      - alert: HighP95Latency
+        expr: service:latency_p95_5m > 0.75
+        for: 30s
+        labels:
+          severity: warning
+          category: latency
+        annotations:
+          summary: "High p95 latency on {{ $labels.service }}"
+          description: "{{ $labels.service }} p95 latency is above 750ms."
+
+      - alert: ContainerCpuPressure
+        expr: container:cpu_usage_rate5m > 0.8
+        for: 2m
+        labels:
+          severity: warning
+          category: infrastructure
+        annotations:
+          summary: "Container CPU pressure"
+          description: "Container {{ $labels.name }} is consuming sustained CPU."
+
+      - alert: ContainerMemoryPressure
+        expr: container:memory_usage_working_set > 400000000
+        for: 30s
+        labels:
+          severity: critical
+          category: infrastructure
+        annotations:
+          summary: "Container memory pressure"
+          description: "Container {{ $labels.name }} working set is above 400MB."
+
+      - alert: HostDiskPressure
+        expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|9p"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay|9p"}) < 0.15
+        for: 2m
+        labels:
+          severity: warning
+          category: infrastructure
+        annotations:
+          summary: "Host disk pressure"
+          description: "Available filesystem capacity dropped below 15%."
+
+  - name: security-alerts
+    rules:
+      - alert: FailedLoginSpike
+        expr: service:failed_login_rate5m > 0.5
+        for: 30s
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "Failed login spike on {{ $labels.service }}"
+          description: "Failed login activity exceeds the expected baseline."
+
+      - alert: TokenValidationSpike
+        expr: service:token_validation_failure_rate5m > 0.5
+        for: 30s
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "Token validation failures spiking"
+          description: "Token validation failures exceed the threshold."
+
+      - alert: ScanQueueBacklogHigh
+        expr: service:scan_backlog_depth > 4
+        for: 30s
+        labels:
+          severity: warning
+          category: workload
+        annotations:
+          summary: "Scan queue backlog is high"
+          description: "Scan queue depth is above four jobs."
+
+      - alert: SecretsAccessErrorSurge
+        expr: rate(security_platform_security_events_total{service="vault-service",event_type="secret_access"}[5m]) > 0.2
+        for: 30s
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "Vault secrets access errors increasing"
+          description: "Vault is emitting elevated secret access security events."
+
+      - alert: SuspiciousTrafficSpike
+        expr: service:suspicious_request_rate5m > 0.1 or rate(security_platform_gateway_rate_limited_requests_total[5m]) > 0.2
+        for: 30s
+        labels:
+          severity: info
+          category: security
+        annotations:
+          summary: "Suspicious traffic spike at the gateway"
+          description: "Burst or rate-limited traffic exceeded the informational threshold."

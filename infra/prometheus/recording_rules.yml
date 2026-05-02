@@ -1,0 +1,51 @@
+groups:
+  - name: service-recording-rules
+    rules:
+      - record: service:http_5xx_rate5m
+        expr: |
+          sum by (service) (
+            rate(security_platform_requests_total{status_code=~"5.."}[5m])
+          )
+      - record: service:request_rate5m
+        expr: |
+          sum by (service) (
+            rate(security_platform_requests_total[5m])
+          )
+      - record: service:latency_p95_5m
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le, service, endpoint) (
+              rate(security_platform_request_latency_seconds_bucket[5m])
+            )
+          )
+      - record: service:failed_login_rate5m
+        expr: |
+          sum by (service) (
+            rate(security_platform_security_events_total{event_type="failed_login"}[5m])
+          )
+      - record: service:token_validation_failure_rate5m
+        expr: |
+          sum by (service) (
+            rate(security_platform_security_events_total{event_type="token_validation_failure"}[5m])
+          )
+      - record: service:suspicious_request_rate5m
+        expr: |
+          sum by (service) (
+            rate(security_platform_gateway_suspicious_request_spikes_total[5m])
+          )
+      - record: service:scan_backlog_depth
+        expr: |
+          max by (service) (
+            security_platform_queue_depth{queue_name="scan-jobs"}
+          )
+      - record: container:cpu_usage_rate5m
+        expr: |
+          sum by (name) (
+            rate(container_cpu_usage_seconds_total{name!=""}[5m])
+          )
+      - record: container:memory_usage_working_set
+        expr: |
+          sum by (name) (
+            container_memory_working_set_bytes{name!=""}
+          )

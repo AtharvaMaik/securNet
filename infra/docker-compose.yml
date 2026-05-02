@@ -1,0 +1,167 @@
+services:
+  api-gateway:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile
+    command: python -m uvicorn services.api_gateway.app:app --host 0.0.0.0 --port 8000
+    environment:
+      SERVICE_NAME: api-gateway
+      PORT: 8000
+      AUTH_SERVICE_URL: http://auth-service:8001
+      VAULT_SERVICE_URL: http://vault-service:8002
+      SCAN_SERVICE_URL: http://scan-service:8003
+      LOG_DIR: /var/log/security-platform
+      DEFAULT_LATENCY_MS: 20
+      LATENCY_JITTER_MS: 30
+      ERROR_RATE: 0
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./runtime-logs:/var/log/security-platform
+    depends_on:
+      - auth-service
+      - vault-service
+      - scan-service
+
+  auth-service:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile
+    command: python -m uvicorn services.auth_service.app:app --host 0.0.0.0 --port 8001
+    environment:
+      SERVICE_NAME: auth-service
+      PORT: 8001
+      LOG_DIR: /var/log/security-platform
+      DEFAULT_LATENCY_MS: 15
+      LATENCY_JITTER_MS: 20
+      ERROR_RATE: 0
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./runtime-logs:/var/log/security-platform
+
+  vault-service:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile
+    command: python -m uvicorn services.vault_service.app:app --host 0.0.0.0 --port 8002
+    environment:
+      SERVICE_NAME: vault-service
+      PORT: 8002
+      LOG_DIR: /var/log/security-platform
+      DEFAULT_LATENCY_MS: 25
+      LATENCY_JITTER_MS: 25
+      ERROR_RATE: 0
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./runtime-logs:/var/log/security-platform
+
+  scan-service:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile
+    command: python -m uvicorn services.scan_service.app:app --host 0.0.0.0 --port 8003
+    environment:
+      SERVICE_NAME: scan-service
+      PORT: 8003
+      LOG_DIR: /var/log/security-platform
+      DEFAULT_LATENCY_MS: 10
+      LATENCY_JITTER_MS: 15
+      ERROR_RATE: 0
+    ports:
+      - "8003:8003"
+    volumes:
+      - ./runtime-logs:/var/log/security-platform
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus:/etc/prometheus
+      - prometheus-data:/prometheus
+    depends_on:
+      - api-gateway
+      - auth-service
+      - vault-service
+      - scan-service
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      - prometheus
+      - loki
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+    depends_on:
+      - alert-webhook-mock
+
+  alert-webhook-mock:
+    image: mendhak/http-https-echo:35
+    ports:
+      - "8088:8080"
+
+  loki:
+    image: grafana/loki:3.1.1
+    command: -config.file=/etc/loki/loki-config.yml
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki/loki-config.yml:/etc/loki/loki-config.yml
+      - loki-data:/loki
+
+  promtail:
+    image: grafana/promtail:3.1.1
+    command: -config.file=/etc/promtail/promtail-config.yml
+    volumes:
+      - ./promtail/promtail-config.yml:/etc/promtail/promtail-config.yml
+      - ./runtime-logs:/var/log/security-platform
+    depends_on:
+      - loki
+
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    command:
+      - --path.rootfs=/host
+    ports:
+      - "9100:9100"
+    volumes:
+      - /:/host:ro
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    ports:
+      - "8080:8080"
+    privileged: true
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+
+volumes:
+  prometheus-data:
+  grafana-data:
+  loki-data:
