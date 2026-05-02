@@ -1,38 +1,40 @@
 {
+  "uid": "security-events",
   "title": "Security Events",
   "schemaVersion": 39,
   "version": 1,
+  "time": { "from": "now-30m", "to": "now" },
   "refresh": "15s",
   "panels": [
     {
       "type": "timeseries",
       "title": "Failed Logins",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
-      "targets": [{ "expr": "rate(security_platform_security_events_total{event_type=\"failed_login\"}[5m])", "legendFormat": "{{service}} :: {{client_id}}" }]
+      "targets": [{ "expr": "{__name__=\"service:failed_login_rate5m\"}", "legendFormat": "{{service}}" }]
     },
     {
       "type": "timeseries",
       "title": "Token Validation Failures",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
-      "targets": [{ "expr": "rate(security_platform_security_events_total{event_type=\"token_validation_failure\"}[5m])", "legendFormat": "{{service}}" }]
+      "targets": [{ "expr": "{__name__=\"service:token_validation_failure_rate5m\"}", "legendFormat": "{{service}}" }]
     },
     {
       "type": "timeseries",
       "title": "Burst Traffic",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
-      "targets": [{ "expr": "rate(security_platform_gateway_burst_traffic_total[5m])", "legendFormat": "{{client_id}} :: {{ip_address}}" }]
+      "targets": [{ "expr": "{__name__=\"service:burst_traffic_rate5m\"}", "legendFormat": "{{service}}" }]
     },
     {
       "type": "timeseries",
       "title": "Rate-Limited Requests",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
-      "targets": [{ "expr": "rate(security_platform_gateway_rate_limited_requests_total[5m])", "legendFormat": "{{client_id}}" }]
+      "targets": [{ "expr": "{__name__=\"service:rate_limited_rate5m\"}", "legendFormat": "{{service}}" }]
     },
     {
       "type": "timeseries",
       "title": "Secrets Access Errors",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
-      "targets": [{ "expr": "rate(security_platform_security_events_total{service=\"vault-service\",event_type=\"secret_access\"}[5m])", "legendFormat": "{{reason}}" }]
+      "targets": [{ "expr": "{__name__=\"service:secret_access_error_rate5m\"}", "legendFormat": "{{service}}" }]
     },
     {
       "type": "timeseries",

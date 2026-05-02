@@ -1,11 +1,20 @@
 groups:
   - name: service-recording-rules
     rules:
+      - record: service:zero
+        expr: |
+          label_replace(
+            up{job=~"api-gateway|auth-service|vault-service|scan-service"} * 0,
+            "service",
+            "$1",
+            "job",
+            "(.*)"
+          )
       - record: service:http_5xx_rate5m
         expr: |
           sum by (service) (
             rate(security_platform_requests_total{status_code=~"5.."}[5m])
-          )
+          ) or on(service) service:zero
       - record: service:request_rate5m
         expr: |
           sum by (service) (
@@ -23,29 +32,44 @@ groups:
         expr: |
           sum by (service) (
             rate(security_platform_security_events_total{event_type="failed_login"}[5m])
-          )
+          ) or on(service) service:zero
       - record: service:token_validation_failure_rate5m
         expr: |
           sum by (service) (
             rate(security_platform_security_events_total{event_type="token_validation_failure"}[5m])
-          )
+          ) or on(service) service:zero
       - record: service:suspicious_request_rate5m
         expr: |
           sum by (service) (
             rate(security_platform_gateway_suspicious_request_spikes_total[5m])
-          )
+          ) or on(service) service:zero
+      - record: service:burst_traffic_rate5m
+        expr: |
+          sum by (service) (
+            rate(security_platform_gateway_burst_traffic_total[5m])
+          ) or on(service) service:zero
+      - record: service:rate_limited_rate5m
+        expr: |
+          sum by (service) (
+            rate(security_platform_gateway_rate_limited_requests_total[5m])
+          ) or on(service) service:zero
+      - record: service:secret_access_error_rate5m
+        expr: |
+          sum by (service) (
+            rate(security_platform_security_events_total{event_type="secret_access"}[5m])
+          ) or on(service) service:zero
       - record: service:scan_backlog_depth
         expr: |
           max by (service) (
             security_platform_queue_depth{queue_name="scan-jobs"}
           )
-      - record: container:cpu_usage_rate5m
+      - record: service:process_cpu_rate5m
         expr: |
-          sum by (name) (
-            rate(container_cpu_usage_seconds_total{name!=""}[5m])
+          sum by (job) (
+            rate(process_cpu_seconds_total{job=~"api-gateway|auth-service|vault-service|scan-service"}[5m])
           )
-      - record: container:memory_usage_working_set
+      - record: service:process_memory_resident_bytes
         expr: |
-          sum by (name) (
-            container_memory_working_set_bytes{name!=""}
+          sum by (job) (
+            process_resident_memory_bytes{job=~"api-gateway|auth-service|vault-service|scan-service"}
           )

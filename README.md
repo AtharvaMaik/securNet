@@ -1,15 +1,68 @@
 # Security Observability Platform
 
-Cloud-deployed observability platform with local parity for a simulated security infrastructure stack. This project models a small security control plane, instruments it with Prometheus metrics and structured logs, visualizes it in Grafana, routes alerts through Alertmanager, and supports deterministic incident simulations for auth failures, dependency loss, queue backlog, latency spikes, and container pressure.
+Production-style observability platform for a simulated security infrastructure stack. The project models the kinds of services you would expect in a security control plane, instruments them with metrics and logs, ships those signals into an observability stack, and supports deterministic incident simulation for alerting and triage workflows.
 
-## What this project demonstrates
+This repo is designed to answer a practical question: if a small security platform started failing in production, would we have the telemetry, dashboards, alerts, and runbooks needed to understand what happened and respond quickly?
 
-- Security-focused service instrumentation, not just generic backend metrics
-- Prometheus-based application and infrastructure monitoring
-- Grafana dashboards for service health, infrastructure, security events, and incident triage
-- Alerting for downtime, latency, dependency health, auth anomalies, queue pressure, and resource stress
-- Loki log correlation for metric-driven incidents
-- EC2 deployment assets with Docker Compose parity
+## Project goals
+
+- Build a small security-oriented service stack instead of a generic CRUD demo
+- Instrument the platform with application, infrastructure, and security-event telemetry
+- Visualize service health, security anomalies, and incident context in Grafana
+- Fire alerts for realistic failure modes such as dependency loss, auth anomalies, latency spikes, and resource pressure
+- Keep local development and EC2 deployment behavior as close as possible
+
+## What is in the platform
+
+### Simulated services
+
+- `api-gateway`
+  - public entrypoint into the platform
+  - validates tokens with `auth-service`
+  - proxies requests to `vault-service` and `scan-service`
+  - tracks burst traffic, suspicious requests, and rate-limited clients
+- `auth-service`
+  - simulates login and token validation
+  - emits failed login, invalid header, and token validation failure metrics
+- `vault-service`
+  - simulates a secrets backend
+  - exposes dependency health and secrets access error signals
+- `scan-service`
+  - simulates queued scanning jobs
+  - emits queue depth, backlog, duration, and worker health signals
+
+### Observability stack
+
+- `Prometheus` for metrics scraping, recording rules, and alert evaluation
+- `Grafana` for dashboards and incident investigation
+- `Alertmanager` for alert routing and grouping
+- `Loki` and `Promtail` for log aggregation and triage context
+- `Node Exporter` for host-level telemetry
+- `cAdvisor` for container and runtime telemetry
+
+## Key telemetry
+
+### Reliability signals
+
+- service uptime
+- request rate
+- p95 latency
+- 5xx rate
+- dependency health
+- queue depth
+- process CPU and memory
+- host CPU, memory, disk, and network
+
+### Security-flavored signals
+
+- failed token validations
+- invalid auth headers
+- failed login spikes
+- secrets access errors
+- suspicious request spikes
+- burst traffic by client
+- rate-limited requests
+- scan backlog growth
 
 ## Architecture
 
@@ -27,55 +80,48 @@ flowchart LR
     Node["Node Exporter"] --> Prom
     Cad["cAdvisor"] --> Prom
 
-    Gateway --> Logs["Promtail"]
-    Auth --> Logs
-    Vault --> Logs
-    Scan --> Logs
-    Logs --> Loki["Loki"]
+    Gateway --> Promtail["Promtail"]
+    Auth --> Promtail
+    Vault --> Promtail
+    Scan --> Promtail
+    Promtail --> Loki["Loki"]
 
     Prom --> Grafana["Grafana"]
     Loki --> Grafana
-    Prom --> Alert["Alertmanager"]
+    Prom --> Alertmanager["Alertmanager"]
 ```
 
-## Services
-
-- `api-gateway`
-  - public entrypoint
-  - validates tokens through `auth-service`
-  - proxies to `vault-service` and `scan-service`
-  - tracks burst traffic, suspicious spikes, and rate-limited requests
-- `auth-service`
-  - `POST /login`
-  - `POST /validate`
-  - emits failed login, invalid header, and token validation metrics
-- `vault-service`
-  - secrets access endpoint
-  - dependency health and secrets access error simulation
-- `scan-service`
-  - queued scan jobs
-  - queue depth, backlog, duration, and failure metrics
-
-## Observability stack
-
-- `Prometheus` for scraping and alert evaluation
-- `Grafana` for dashboards
-- `Alertmanager` for alert routing
-- `Loki + Promtail` for structured log ingestion
-- `Node Exporter` for host metrics
-- `cAdvisor` for container metrics
-
-## Repo layout
+## Repository layout
 
 ```text
-services/        FastAPI services
-shared/          shared config, logging, metrics, middleware
-infra/           Docker Compose, Prometheus, Grafana, Alertmanager, Loki, Promtail
-deploy/ec2/      EC2 bootstrap and service assets
-scripts/incidents/ deterministic incident generators
-docs/            architecture, alerts, dashboards, runbook, AWS comparison
-tests/           service and infra validation
+services/             FastAPI services for the simulated platform
+shared/               shared config, logging, metrics, middleware, and app helpers
+infra/                Docker Compose, Prometheus, Grafana, Alertmanager, Loki, Promtail
+deploy/ec2/           EC2 bootstrap and deployment assets
+scripts/incidents/    repeatable incident simulation scripts
+docs/                 focused docs for architecture, dashboards, alerts, runbook, and AWS notes
+tests/                service and infrastructure validation
+project_details.md    deep-dive explanation of the full system
 ```
+
+## Runtime entrypoints
+
+- Hybrid operator console: [http://localhost:8000](http://localhost:8000)
+- Auth service docs: [http://localhost:8001/docs](http://localhost:8001/docs)
+- Vault service docs: [http://localhost:8002/docs](http://localhost:8002/docs)
+- Scan service docs: [http://localhost:8003/docs](http://localhost:8003/docs)
+- Grafana: [http://localhost:3000](http://localhost:3000)
+- Grafana folder view: [http://localhost:3000/dashboards/f/security-observability/security-observability](http://localhost:3000/dashboards/f/security-observability/security-observability)
+- Prometheus: [http://localhost:9090](http://localhost:9090)
+- Alertmanager: [http://localhost:9093](http://localhost:9093)
+- Loki: [http://localhost:3100](http://localhost:3100)
+
+## Grafana login
+
+- Username: `admin`
+- Password: `observability-admin`
+
+Grafana uses a normal login flow locally because anonymous mode produced permission-noise in the dashboard UI. The authenticated flow is cleaner and matches how an internal observability console is typically accessed.
 
 ## Quick start
 
@@ -84,86 +130,79 @@ tests/           service and infra validation
 - Python 3.10+
 - Docker Desktop or Docker Engine with Compose
 
-### Install dependencies
+### Install local Python dependencies
 
 ```bash
 python -m pip install -e .[dev]
 ```
 
-### Start the platform
+### Start the full stack
 
 ```bash
 docker compose -f infra/docker-compose.yml up --build -d
 ```
 
-### Endpoints
-
-- API gateway: [http://localhost:8000](http://localhost:8000)
-- Auth service: [http://localhost:8001](http://localhost:8001)
-- Vault service: [http://localhost:8002](http://localhost:8002)
-- Scan service: [http://localhost:8003](http://localhost:8003)
-- Hybrid console: [http://localhost:8000](http://localhost:8000)
-- Grafana: [http://localhost:3000](http://localhost:3000)
-- Prometheus: [http://localhost:9090](http://localhost:9090)
-- Alertmanager: [http://localhost:9093](http://localhost:9093)
-- Loki: [http://localhost:3100](http://localhost:3100)
-
-### Grafana access
-
-- Anonymous viewer access is enabled for dashboard browsing.
-- Admin login remains available with username `admin` and password `admin`.
-
-## End-to-end flow
-
-### 1. Get a token
+### Validate the stack
 
 ```bash
-curl -X POST http://localhost:8001/login \
-  -H "Content-Type: application/json" \
+python -m pytest -q
+python -m ruff check .
+docker compose -f infra/docker-compose.yml config
+```
+
+## Typical workflow
+
+### 1. Open the operator console
+
+Use [http://localhost:8000](http://localhost:8000) to:
+
+- see the current service summary
+- jump into Grafana, Prometheus, Alertmanager, and Loki
+- trigger incident simulations from one place
+
+### 2. Open Grafana
+
+Start with the folder view:
+
+- [Security Observability folder](http://localhost:3000/dashboards/f/security-observability/security-observability)
+
+Key dashboards:
+
+- `Service Health`
+- `Security Events`
+- `Incident Triage`
+- `Infrastructure`
+
+### 3. Drive traffic through the platform
+
+Get a token:
+
+```bash
+curl -X POST http://localhost:8001/login ^
+  -H "Content-Type: application/json" ^
   -d "{\"username\":\"analyst\",\"password\":\"correct-password\",\"client_id\":\"soc-1\"}"
 ```
 
-### 2. Use the gateway
+Use the gateway:
 
 ```bash
-curl http://localhost:8000/vault/secrets/db-password \
+curl http://localhost:8000/vault/secrets/db-password ^
   -H "Authorization: Bearer token-analyst-soc-1"
 ```
 
-### 3. Queue a scan
+Queue a scan:
 
 ```bash
-curl -X POST http://localhost:8003/scan \
-  -H "Content-Type: application/json" \
+curl -X POST http://localhost:8003/scan ^
+  -H "Content-Type: application/json" ^
   -d "{\"target\":\"artifact-a\",\"client_id\":\"soc-1\"}"
 ```
 
-## Dashboards
+## Incident simulation
 
-- `Service Health`
-  - uptime
-  - requests/sec
-  - 5xx rate
-  - p95 latency
-  - dependency health
-- `Infrastructure`
-  - host CPU, memory, disk
-  - container CPU and memory
-  - network traffic
-- `Security Events`
-  - failed logins
-  - token validation failures
-  - secrets access errors
-  - burst traffic and rate-limited requests
-  - scan backlog depth
-- `Incident Triage`
-  - firing alert conditions
-  - dependency state
-  - recent Loki logs
+The platform includes deterministic incidents so the dashboards and alerts can be demonstrated on demand.
 
-## Incident simulations
-
-Run the incidents from the repo root.
+Apply incidents:
 
 ```bash
 python -m scripts.incidents.auth_latency --mode apply
@@ -173,7 +212,7 @@ python -m scripts.incidents.gateway_token_spike --mode apply
 python -m scripts.incidents.container_memory_pressure --mode apply
 ```
 
-Reset examples:
+Reset stateful incidents:
 
 ```bash
 python -m scripts.incidents.auth_latency --mode reset
@@ -184,45 +223,43 @@ python -m scripts.incidents.container_memory_pressure --mode reset
 
 Notes:
 
-- `gateway_token_spike` is traffic-driven rather than stateful. It clears naturally as the Prometheus 5-minute rate window ages out, or immediately if Prometheus is restarted during local testing.
-- Alert hold times are tuned for local demos, while the rate calculations still use Prometheus recording rules.
+- `gateway_token_spike` is traffic-based, so it naturally decays as the Prometheus rate window ages out.
+- alert timing is tuned for a local demo environment rather than a long-running production SRE setup
 
-## Validation
+## What has been verified locally
 
-```bash
-python -m pytest -q
-python -m ruff check .
-docker compose -f infra/docker-compose.yml config
-```
+- full Docker Compose startup
+- healthy Prometheus scrape targets
+- Grafana provisioning and dashboard loading
+- Loki ingestion and log visibility
+- gateway-to-service authenticated traffic
+- alert firing for dependency failure and token validation spike
+- browser-level checks across the operator console, dashboards, Prometheus, Alertmanager, and service docs
 
-## Verified locally
+## Deployment model
 
-This repo has been validated locally for:
+The default runtime is local Docker Compose, but the repo also includes an EC2 deployment path under `deploy/ec2/`. The intention is:
 
-- service startup through Docker Compose
-- Prometheus target health across app and infra targets
-- Grafana health and provisioning
-- Loki ingestion
-- authenticated gateway-to-vault traffic
-- incident-driven `SecurityDependencyUnhealthy` firing
-- incident-driven `TokenValidationSpike` firing through Alertmanager
+- local development remains free and easy to run
+- deployment structure still looks production-minded
+- the same service topology is preserved across local and EC2 modes
 
-## AWS / EC2
+## Additional documentation
 
-The project includes `deploy/ec2/` assets for a single-host EC2 deployment using the same Docker Compose topology as local development, plus CloudWatch comparison notes in [docs/aws-comparison.md](docs/aws-comparison.md).
+- [docs/architecture.md](docs/architecture.md)
+- [docs/alerts.md](docs/alerts.md)
+- [docs/dashboards.md](docs/dashboards.md)
+- [docs/runbook.md](docs/runbook.md)
+- [docs/aws-comparison.md](docs/aws-comparison.md)
+- [project_details.md](project_details.md)
 
-## Documentation
+## Portfolio notes
 
-- [Architecture](docs/architecture.md)
-- [Alerts](docs/alerts.md)
-- [Dashboards](docs/dashboards.md)
-- [Runbook](docs/runbook.md)
-- [AWS comparison](docs/aws-comparison.md)
+This project works well as a resume or interview artifact because it demonstrates:
 
-## Suggested screenshots for a portfolio or resume
-
-- Service Health dashboard under normal traffic
-- Security Events dashboard during token validation spike
-- Incident Triage dashboard with a firing alert
-- Alertmanager active alert list
-- Prometheus target page showing all services `up`
+- service instrumentation design
+- observability architecture choices
+- incident simulation and triage
+- alert design and threshold reasoning
+- documentation and operational thinking
+- cloud deployment awareness without requiring a permanently paid environment

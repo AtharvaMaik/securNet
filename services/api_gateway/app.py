@@ -84,10 +84,11 @@ async def gather_console_snapshot(app) -> dict[str, Any]:
         "queue_depth": queue_depth,
         "active_dependency_issues": active_alerts,
         "links": {
-            "grafana": "http://localhost:3000/d/security-service-health/service-health",
+            "grafana": "http://localhost:3000/dashboards/f/security-observability/security-observability",
             "grafana_security": "http://localhost:3000/d/security-events/security-events",
             "grafana_triage": "http://localhost:3000/d/incident-triage/incident-triage",
             "grafana_infra": "http://localhost:3000/d/security-infrastructure/infrastructure",
+            "grafana_service_health": "http://localhost:3000/d/security-service-health/service-health",
             "prometheus": "http://localhost:9090",
             "alertmanager": "http://localhost:9093",
             "loki": "http://localhost:3100",
@@ -287,10 +288,18 @@ def render_console(snapshot: dict[str, Any], message: str | None = None) -> str:
             </p>
             <div class="links">
               <a href="{snapshot['links']['grafana']}" target="_blank" rel="noreferrer">
-                Service Health Dashboard
+                Open Grafana Folder
+              </a>
+              <a
+                href="{snapshot['links']['grafana_service_health']}"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Service Health
               </a>
               <a
                 href="{snapshot['links']['grafana_security']}"
+                class="secondary"
                 target="_blank"
                 rel="noreferrer"
               >
@@ -576,6 +585,9 @@ def create_app(dependencies: GatewayDependencies | None = None):
     @asynccontextmanager
     async def gateway_lifespan(inner_app):
         async with base_lifespan(inner_app):
+            mark_dependency(inner_app, "auth-service", True)
+            mark_dependency(inner_app, "vault-service", True)
+            mark_dependency(inner_app, "scan-service", True)
             yield
         gateway_dependencies: GatewayDependencies = app.state.gateway_dependencies
         await gateway_dependencies.auth_client.aclose()

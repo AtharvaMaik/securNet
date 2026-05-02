@@ -3,6 +3,7 @@ apiVersion: 1
 providers:
   - name: security-observability-platform
     folder: Security Observability
+    folderUid: security-observability
     type: file
     disableDeletion: false
     updateIntervalSeconds: 30

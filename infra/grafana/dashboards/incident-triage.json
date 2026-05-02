@@ -1,7 +1,9 @@
 {
+  "uid": "incident-triage",
   "title": "Incident Triage",
   "schemaVersion": 39,
   "version": 1,
+  "time": { "from": "now-30m", "to": "now" },
   "refresh": "10s",
   "panels": [
     {
@@ -9,16 +11,45 @@
       "title": "Firing Alert Conditions",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
       "targets": [
-        { "expr": "service:http_5xx_rate5m", "legendFormat": "5xx {{service}}" },
-        { "expr": "max by(service) (service:latency_p95_5m)", "legendFormat": "latency {{service}}" },
-        { "expr": "service:scan_backlog_depth", "legendFormat": "backlog {{service}}" }
+        { "expr": "{__name__=\"service:http_5xx_rate5m\"}", "legendFormat": "5xx {{service}}" },
+        { "expr": "max by(service) ({__name__=\"service:latency_p95_5m\"})", "legendFormat": "latency {{service}}" },
+        { "expr": "{__name__=\"service:scan_backlog_depth\"}", "legendFormat": "backlog {{service}}" }
       ]
     },
     {
-      "type": "timeseries",
+      "type": "state-timeline",
       "title": "Dependency State",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
-      "targets": [{ "expr": "security_platform_dependency_health", "legendFormat": "{{service}} :: {{dependency}}" }]
+      "targets": [{ "expr": "security_platform_dependency_health", "legendFormat": "{{service}} :: {{dependency}}" }],
+      "options": {
+        "mergeValues": true,
+        "showValue": "auto",
+        "rowHeight": 0.9
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": { "text": "Unhealthy", "color": "red" },
+                "1": { "text": "Healthy", "color": "green" }
+              }
+            }
+          ],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      }
     },
     {
       "type": "logs",

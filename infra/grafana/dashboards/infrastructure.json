@@ -1,7 +1,9 @@
 {
+  "uid": "security-infrastructure",
   "title": "Infrastructure",
   "schemaVersion": 39,
   "version": 1,
+  "time": { "from": "now-30m", "to": "now" },
   "refresh": "15s",
   "panels": [
     {
@@ -18,21 +20,21 @@
     },
     {
       "type": "timeseries",
-      "title": "Container CPU",
+      "title": "Service CPU",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
-      "targets": [{ "expr": "container:cpu_usage_rate5m", "legendFormat": "{{name}}" }]
+      "targets": [{ "expr": "{__name__=\"service:process_cpu_rate5m\"}", "legendFormat": "{{job}}" }]
     },
     {
       "type": "timeseries",
-      "title": "Container Memory",
+      "title": "Service Memory",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
-      "targets": [{ "expr": "container:memory_usage_working_set", "legendFormat": "{{name}}" }]
+      "targets": [{ "expr": "{__name__=\"service:process_memory_resident_bytes\"}", "legendFormat": "{{job}}" }]
     },
     {
       "type": "timeseries",
       "title": "Disk Available %",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
-      "targets": [{ "expr": "(node_filesystem_avail_bytes{fstype!~\"tmpfs|overlay|9p\"} / node_filesystem_size_bytes{fstype!~\"tmpfs|overlay|9p\"}) * 100", "legendFormat": "{{mountpoint}}" }]
+      "targets": [{ "expr": "bottomk(6, (node_filesystem_avail_bytes{fstype!~\"tmpfs|overlay|9p\"} / node_filesystem_size_bytes{fstype!~\"tmpfs|overlay|9p\"}) * 100)", "legendFormat": "{{mountpoint}}" }]
     },
     {
       "type": "timeseries",
