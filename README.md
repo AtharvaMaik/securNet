@@ -102,15 +102,16 @@ docker compose -f infra/docker-compose.yml up --build -d
 - Auth service: [http://localhost:8001](http://localhost:8001)
 - Vault service: [http://localhost:8002](http://localhost:8002)
 - Scan service: [http://localhost:8003](http://localhost:8003)
+- Hybrid console: [http://localhost:8000](http://localhost:8000)
 - Grafana: [http://localhost:3000](http://localhost:3000)
 - Prometheus: [http://localhost:9090](http://localhost:9090)
 - Alertmanager: [http://localhost:9093](http://localhost:9093)
 - Loki: [http://localhost:3100](http://localhost:3100)
 
-### Grafana credentials
+### Grafana access
 
-- Username: `admin`
-- Password: `admin`
+- Anonymous viewer access is enabled for dashboard browsing.
+- Admin login remains available with username `admin` and password `admin`.
 
 ## End-to-end flow
 

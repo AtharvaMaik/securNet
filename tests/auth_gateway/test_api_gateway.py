@@ -23,6 +23,10 @@ def clear_settings_cache(monkeypatch):
 def build_auth_app():
     app = FastAPI()
 
+    @app.get("/health")
+    async def health():
+        return {"service": "auth", "status": "ok", "dependencies": {}}
+
     @app.post("/validate")
     async def validate(request: Request):
         auth_header = request.headers.get("authorization")
@@ -41,10 +45,16 @@ def build_auth_app():
 
 def build_upstream_app(name: str):
     app = FastAPI()
+    app.state.simulation_calls = []
 
     @app.api_route("/{path:path}", methods=["GET", "POST"])
     async def handle(path: str, request: Request):
         payload = await request.json() if request.method == "POST" else None
+        if path == "health":
+            return {"service": name, "status": "ok", "dependencies": {}}
+        if path.startswith("simulate"):
+            app.state.simulation_calls.append({"path": path, "payload": payload})
+            return {"status": "updated", "path": path, "payload": payload}
         return {
             "service": name,
             "path": path,
@@ -136,3 +146,58 @@ def test_gateway_emits_rate_limit_and_burst_metrics():
         'ip_address="203.0.113.10",service="api-gateway"} 1.0'
         in metrics.text
     )
+
+
+def test_gateway_homepage_renders_hybrid_console():
+    with create_gateway_client() as client:
+        response = client.get("/")
+
+    assert response.status_code == 200
+    assert "Security Observability Platform" in response.text
+    assert "Operator Console" in response.text
+    assert "Grafana" in response.text
+    assert "Service Status" in response.text
+
+
+def test_gateway_incident_control_proxies_simulation_request():
+    auth_app = build_auth_app()
+    vault_app = build_upstream_app("vault")
+    scan_app = build_upstream_app("scan")
+
+    from services.api_gateway.app import GatewayDependencies, create_app
+
+    auth_client = httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=auth_app),
+        base_url="http://auth-service",
+    )
+    vault_client = httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=vault_app),
+        base_url="http://vault-service",
+    )
+    scan_client = httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=scan_app),
+        base_url="http://scan-service",
+    )
+
+    app = create_app(
+        dependencies=GatewayDependencies(
+            auth_client=auth_client,
+            vault_client=vault_client,
+            scan_client=scan_client,
+        )
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/ui/incidents/vault-dependency",
+            data={"mode": "apply"},
+            follow_redirects=False,
+        )
+
+    assert response.status_code == 303
+    assert vault_app.state.simulation_calls == [
+        {
+            "path": "simulate/dependency",
+            "payload": {"dependency_failure": 1},
+        }
+    ]
